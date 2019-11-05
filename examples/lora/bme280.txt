@@ -1,0 +1,178 @@
+
+I2C sensor(p13, p15);
+const int BME280_ADDR = (0x77 << 1);
+
+///////////////////////////////////////
+// Globals variables
+///////////////////////////////////////
+
+char cmd_bme[18];
+uint32_t hum_raw;
+float humf;
+uint32_t temp_raw;
+float tempf;
+uint32_t press_raw;
+float pressf;
+//char cmd[4];
+uint16_t dig_T1,dig_P1,dig_H1, dig_H3;
+int16_t dig_T2, dig_T3,dig_P2, dig_P3, dig_P4, dig_P5, dig_P6, dig_P7, dig_P8, dig_P9,dig_H2, dig_H4, dig_H5, dig_H6;
+int32_t t_fine;
+
+
+void bme_init() { //bme initialization
+
+    sensor.frequency(1000000);
+
+    cmd_bme[0] = 0xf2; // ctrl_hum
+    cmd_bme[1] = 0x01;
+    sensor.write(BME280_ADDR, cmd_bme, 2);
+
+    cmd_bme[0] = 0xf4; // ctrl_meas
+    cmd_bme[1] = 0x27;
+    sensor.write(BME280_ADDR, cmd_bme, 2);
+
+    cmd_bme[0] = 0xf5; // config
+    cmd_bme[1] = 0xa0;
+    sensor.write(BME280_ADDR, cmd_bme, 2);
+
+    cmd_bme[0] = 0x88; // read dig_T regs
+    sensor.write(BME280_ADDR, cmd_bme, 1);
+    sensor.read(BME280_ADDR, cmd_bme, 6);
+
+    dig_T1 = (cmd_bme[1] << 8) | cmd_bme[0];
+    dig_T2 = (cmd_bme[3] << 8) | cmd_bme[2];
+    dig_T3 = (cmd_bme[5] << 8) | cmd_bme[4];
+
+//    DEBUG_PRINT("dig_T = 0x%x, 0x%x, 0x%x\n", dig_T1, dig_T2, dig_T3);
+
+    cmd_bme[0] = 0x8E; // read dig_P regs
+    sensor.write(BME280_ADDR, cmd_bme, 1);
+    sensor.read(BME280_ADDR, cmd_bme, 18);
+
+    dig_P1 = (cmd_bme[ 1] << 8) | cmd_bme[ 0];
+    dig_P2 = (cmd_bme[ 3] << 8) | cmd_bme[ 2];
+    dig_P3 = (cmd_bme[ 5] << 8) | cmd_bme[ 4];
+    dig_P4 = (cmd_bme[ 7] << 8) | cmd_bme[ 6];
+    dig_P5 = (cmd_bme[ 9] << 8) | cmd_bme[ 8];
+    dig_P6 = (cmd_bme[11] << 8) | cmd_bme[10];
+    dig_P7 = (cmd_bme[13] << 8) | cmd_bme[12];
+    dig_P8 = (cmd_bme[15] << 8) | cmd_bme[14];
+    dig_P9 = (cmd_bme[17] << 8) | cmd_bme[16];
+
+//    DEBUG_PRINT("dig_P = 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n", dig_P1, dig_P2, dig_P3, dig_P4, dig_P5, dig_P6, dig_P7, dig_P8, dig_P9);
+
+    cmd_bme[0] = 0xA1; // read dig_H regs
+    sensor.write(BME280_ADDR, cmd_bme, 1);
+    sensor.read(BME280_ADDR, cmd_bme, 9);
+
+    dig_H1 = cmd_bme[0];
+    dig_H2 = (cmd_bme[2] << 8) | cmd_bme[1];
+    dig_H3 = cmd_bme[3];
+    dig_H4 = (cmd_bme[4] << 4) | (cmd_bme[5] & 0x0f);
+    dig_H5 = (cmd_bme[7] << 4) | ((cmd_bme[6]>>4) & 0x0f);
+    dig_H6 = cmd_bme[8];
+
+//    DEBUG_PRINT("dig_H = 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n", dig_H1, dig_H2, dig_H3, dig_H4, dig_H5, dig_H6);
+}
+
+float getTemperature(){
+
+    
+    cmd_bme[0] = 0xfa; // temp_msb
+    sensor.write(BME280_ADDR, cmd_bme, 1);
+    sensor.read(BME280_ADDR, &cmd_bme[1], 1);
+    
+    cmd_bme[0] = 0xfb; // temp_lsb
+    sensor.write(BME280_ADDR, cmd_bme, 1);
+    sensor.read(BME280_ADDR, &cmd_bme[2], 1);
+    
+    cmd_bme[0] = 0xfc; // temp_xlsb
+    sensor.write(BME280_ADDR, cmd_bme, 1);
+    sensor.read(BME280_ADDR, &cmd_bme[3], 1);
+    
+    temp_raw = (cmd_bme[1] << 12) | (cmd_bme[2] << 4) | (cmd_bme[3] >> 4);
+    
+    int32_t temp;
+    
+    temp =
+        (((((temp_raw >> 3) - (dig_T1 << 1))) * dig_T2) >> 11) +
+        ((((((temp_raw >> 4) - dig_T1) * ((temp_raw >> 4) - dig_T1)) >> 12) * dig_T3) >> 14);
+    
+    t_fine = temp;
+    temp = (temp * 5 + 128) >> 8;
+    tempf = (float)temp;
+    
+    return (tempf/100.0f);
+}
+
+float getPressure(){
+
+    cmd_bme[0] = 0xf7; // press_msb
+    sensor.write(BME280_ADDR, cmd_bme, 1);
+    sensor.read(BME280_ADDR, &cmd_bme[1], 1);
+
+    cmd_bme[0] = 0xf8; // press_lsb
+    sensor.write(BME280_ADDR, cmd_bme, 1);
+    sensor.read(BME280_ADDR, &cmd_bme[2], 1);
+
+    cmd_bme[0] = 0xf9; // press_xlsb
+    sensor.write(BME280_ADDR, cmd_bme, 1);
+    sensor.read(BME280_ADDR, &cmd_bme[3], 1);
+
+    press_raw = (cmd_bme[1] << 12) | (cmd_bme[2] << 4) | (cmd_bme[3] >> 4);
+
+    int32_t var1, var2;
+    uint32_t press;
+
+    var1 = (t_fine >> 1) - 64000;
+    var2 = (((var1 >> 2) * (var1 >> 2)) >> 11) * dig_P6;
+    var2 = var2 + ((var1 * dig_P5) << 1);
+    var2 = (var2 >> 2) + (dig_P4 << 16);
+    var1 = (((dig_P3 * (((var1 >> 2)*(var1 >> 2)) >> 13)) >> 3) + ((dig_P2 * var1) >> 1)) >> 18;
+    var1 = ((32768 + var1) * dig_P1) >> 15;
+    if (var1 == 0) {
+        return 0;
+    }
+    press = (((1048576 - press_raw) - (var2 >> 12))) * 3125;
+    if(press < 0x80000000) {
+        press = (press << 1) / var1;
+    }
+    else {
+        press = (press / var1) * 2;
+    }
+    var1 = ((int32_t)dig_P9 * ((int32_t)(((press >> 3) * (press >> 3)) >> 13))) >> 12;
+    var2 = (((int32_t)(press >> 2)) * (int32_t)dig_P8) >> 13;
+    press = (press + ((var1 + var2 + dig_P7) >> 4));
+
+    pressf = (float)press;
+    return (pressf/100.0f);
+}
+
+float getHumidity(){
+
+
+    cmd_bme[0] = 0xfd; // hum_msb
+    sensor.write(BME280_ADDR, cmd_bme, 1);
+    sensor.read(BME280_ADDR, &cmd_bme[1], 1);
+
+    cmd_bme[0] = 0xfd; // hum_lsb
+    sensor.write(BME280_ADDR, cmd_bme, 1);
+    sensor.read(BME280_ADDR, &cmd_bme[2], 1);
+
+    hum_raw = (cmd_bme[1] << 8) | cmd_bme[2];
+
+    int32_t v_x1;
+
+    v_x1 = t_fine - 76800;
+    v_x1 =  (((((hum_raw << 14) -(((int32_t)dig_H4) << 20) - (((int32_t)dig_H5) * v_x1)) +
+               ((int32_t)16384)) >> 15) * (((((((v_x1 * (int32_t)dig_H6) >> 10) *
+                                            (((v_x1 * ((int32_t)dig_H3)) >> 11) + 32768)) >> 10) + 2097152) *
+                                            (int32_t)dig_H2 + 8192) >> 14));
+    v_x1 = (v_x1 - (((((v_x1 >> 15) * (v_x1 >> 15)) >> 7) * (int32_t)dig_H1) >> 4));
+    v_x1 = (v_x1 < 0 ? 0 : v_x1);
+    v_x1 = (v_x1 > 419430400 ? 419430400 : v_x1);
+
+    humf = (float)(v_x1 >> 12);
+
+    return (humf/1024.0f);
+}
