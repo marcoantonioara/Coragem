@@ -1,0 +1,35 @@
+{  
+    
+    "target_overrides": {
+        "K64F": {
+            "target.features_add": ["BLE"],
+            "target.extra_labels_add": ["CORDIO", "CORDIO_BLUENRG"]
+        },
+        "NUCLEO_F401RE": {
+            "target.features_add": ["BLE"],
+            "target.extra_labels_add": ["CORDIO", "CORDIO_BLUENRG"]
+        },
+        "DISCO_L475VG_IOT01A": {
+            "target.features_add": ["BLE"],
+            "target.extra_labels_add": ["CORDIO", "CORDIO_BLUENRG"]
+        },
+        "NRF52840_DK": {
+            "platform.stdio-baud-rate": 9600,
+            "platform.default-serial-baud-rate": 9600,
+            "target.features_add": ["BLE"],
+            "target.extra_labels_add": ["CORDIO", "CORDIO_LL", "SOFTDEVICE_N ONE", "NORDIC_CORDIO"],
+            "target.extra_labels_remove": ["SOFTDEVICE_COMMON", "SOFTDEVICE_S140_FULL", "NORDIC_SOFTDEVICE"],           
+            "target.lf_clock_src": "NRF_LF_SRC_RC",
+            "target.lf_clock_rc_calib_timer_interval": 16,
+            "target.lf_clock_rc_calib_mode_config": 2
+
+
+            
+        },
+        "NRF52_DK": {
+            "target.features_add": ["BLE"],
+            "target.extra_labels_add": ["CORDIO", "CORDIO_LL", "SOFTDEVICE_NONE", "NORDIC_CORDIO"],
+            "target.extra_labels_remove": ["SOFTDEVICE_COMMON", "SOFTDEVICE_S132_FULL", "NORDIC_SOFTDEVICE"]
+        }
+    }
+}
